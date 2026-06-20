@@ -714,17 +714,17 @@ Keep definitions concise (under 8 words). No numbering, no extra text.</div>
     <div class="mo" id="qi-modal" onclick="if(event.target===this)closeQI()">
         <div class="m">
             <div class="mh"></div>
-            <h2>📋 Paste word list</h2>
+            <h2>📋 Import cards</h2>
             <p style="color:var(--text-muted);font-size:14px;margin-bottom:12px;line-height:1.5">
-                Paste the list from ChatGPT or Claude. One word per line:
+                Paste a <strong style="color:var(--text)">word list</strong> from ChatGPT/Claude, or paste an <strong style="color:var(--text)">import link</strong>:
             </p>
             <div style="background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;color:#818cf8;font-family:monospace;line-height:1.9">
                 procrastinate - to delay doing something<br>
                 resilient - able to recover quickly<br>
-                eloquent - fluent and persuasive
+                <span style="color:#6ee7b7">or paste a link: https://…?add=…</span>
             </div>
             <textarea class="fi" id="qi-text" style="min-height:150px;font-size:15px"
-                placeholder="Paste your list here..." oninput="previewQI()"></textarea>
+                placeholder="Paste word list or import link here..." oninput="previewQI()"></textarea>
             <div id="qi-preview" style="font-size:13px;color:var(--primary-light);margin:8px 0 14px;min-height:20px;font-weight:600"></div>
             <div class="m-acts">
                 <button class="mb mb-edit" id="qi-confirm" onclick="doQI()" disabled style="opacity:0.4">✅ Add cards</button>
@@ -1188,10 +1188,38 @@ function parseList(text) {
         .filter(c=>c&&c.front&&c.back);
 }
 
+function parseImportUrl(text) {
+    try {
+        const t = text.trim();
+        if (!t.includes('?add=') && !t.includes('&add=')) return null;
+        const url = new URL(t.startsWith('http') ? t : 'https://x.com/' + t);
+        const raw = url.searchParams.get('add');
+        if (!raw) return null;
+        const b64 = raw.replace(/-/g,'+').replace(/_/g,'/');
+        const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+        const parsed = JSON.parse(new TextDecoder('utf-8').decode(bytes));
+        if (!Array.isArray(parsed)) return null;
+        return parsed.map(c=>({
+            front: c.front||c.f||'',
+            back: c.back||c.b||'',
+            example: c.example||c.e||''
+        })).filter(c=>c.front&&c.back);
+    } catch { return null; }
+}
+
 function previewQI() {
-    const parsed = parseList(document.getElementById('qi-text').value);
+    const text = document.getElementById('qi-text').value;
     const el = document.getElementById('qi-preview');
     const btn = document.getElementById('qi-confirm');
+    const fromUrl = parseImportUrl(text);
+    if (fromUrl && fromUrl.length) {
+        el.textContent = `🔗 Link detected — ${fromUrl.length} card${fromUrl.length>1?'s':''}`;
+        el.style.color = '#6ee7b7';
+        btn.disabled=false; btn.style.opacity='1';
+        return;
+    }
+    el.style.color = 'var(--primary-light)';
+    const parsed = parseList(text);
     if (parsed.length) {
         el.textContent = `✓ Found ${parsed.length} word${parsed.length>1?'s':''}`;
         btn.disabled=false; btn.style.opacity='1';
@@ -1202,7 +1230,18 @@ function previewQI() {
 }
 
 function doQI() {
-    const parsed = parseList(document.getElementById('qi-text').value);
+    const text = document.getElementById('qi-text').value;
+    const fromUrl = parseImportUrl(text);
+    if (fromUrl && fromUrl.length) {
+        const all = cards();
+        fromUrl.forEach(c=>all.push(mkCard(c.front, c.back, c.example)));
+        save(K, all);
+        closeQI();
+        showView('cards');
+        toast(`Added ${fromUrl.length} card${fromUrl.length>1?'s':''}! 🎉`);
+        return;
+    }
+    const parsed = parseList(text);
     if (!parsed.length) return;
     const all = cards();
     const count = parsed.length;
