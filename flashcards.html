@@ -1225,7 +1225,8 @@ function checkUrlImport() {
         let parsed;
         try {
             const b64 = raw.replace(/-/g,'+').replace(/_/g,'/');
-            parsed = JSON.parse(atob(b64));
+            const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+            parsed = JSON.parse(new TextDecoder('utf-8').decode(bytes));
         } catch {
             parsed = parseList(decodeURIComponent(raw).replace(/,/g,'\n').replace(/\|/g,' - '));
         }
