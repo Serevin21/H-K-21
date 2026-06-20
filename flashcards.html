@@ -1205,11 +1205,12 @@ function doQI() {
     const parsed = parseList(document.getElementById('qi-text').value);
     if (!parsed.length) return;
     const all = cards();
+    const count = parsed.length;
     parsed.forEach(c=>all.push(mkCard(c.front, c.back)));
     save(K, all);
     closeQI();
-    updateHome();
-    toast(`Added ${parsed.length} card${parsed.length>1?'s':''}! 🎉`);
+    showView('cards');
+    toast(`Added ${count} card${count>1?'s':''}! 🎉`);
 }
 
 // ─── URL Import ───────────────────────────────────────────────────────────────
@@ -1251,12 +1252,13 @@ function checkUrlImport() {
 
 function confirmUrlImport() {
     const all = cards();
+    const count = pendingUrlCards.length;
     pendingUrlCards.forEach(c=>all.push(mkCard(c.front, c.back, c.example)));
     save(K, all);
-    document.getElementById('url-import-banner').style.display='none';
-    updateHome();
-    toast(`Added ${pendingUrlCards.length} card${pendingUrlCards.length>1?'s':''}! 🎉`);
     pendingUrlCards=[];
+    document.getElementById('url-import-banner').style.display='none';
+    showView('cards');
+    toast(`Added ${count} card${count>1?'s':''}! 🎉`);
 }
 
 function cancelUrlImport() {
