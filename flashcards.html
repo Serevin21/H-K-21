@@ -560,6 +560,13 @@
 
         <button class="btn btn-p" onclick="saveCard()">Save</button>
         <button class="btn btn-o" onclick="cancelAdd()" style="margin-top:10px">Cancel</button>
+
+        <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border)">
+            <p style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.8px;font-weight:700">Or import from chat</p>
+            <button class="btn btn-o" onclick="openQI()" style="border-color:var(--primary);color:var(--primary-light)">
+                📋 Paste word list from ChatGPT / Claude
+            </button>
+        </div>
     </div>
 
     <!-- CARDS LIST -->
@@ -641,6 +648,35 @@
         </div>
 
         <div class="ss">
+            <div class="ss-t">AI Integration</div>
+            <div class="surf">
+                <p style="font-size:14px;color:var(--text-muted);line-height:1.6;margin-bottom:14px">
+                    Copy this prompt and give it to ChatGPT or Claude <strong style="color:var(--text)">once</strong>. After that just say <em>"add these words"</em> and paste the list into the app.
+                </p>
+                <div id="ai-prompt-box" style="background:var(--surface2);border:1px dashed var(--primary);border-radius:12px;padding:14px;font-size:13px;color:#c7d2fe;line-height:1.8;margin-bottom:14px;white-space:pre-wrap;user-select:all;-webkit-user-select:all">When I ask you to add words to my English flashcard app, reply ONLY with a word list in this exact format (one per line, nothing else):
+
+procrastinate - to delay doing something
+resilient - able to recover quickly from difficulties
+eloquent - fluent and persuasive in speaking
+
+Use the format: English word - short English or Russian definition
+Keep definitions concise (under 8 words). No numbering, no extra text.</div>
+                <button class="btn btn-o" onclick="copyAIPrompt()" style="border-color:var(--primary);color:var(--primary-light)">📋 Copy prompt</button>
+            </div>
+        </div>
+
+        <div class="ss">
+            <div class="ss-t">Import via link</div>
+            <div class="surf">
+                <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:12px">
+                    You can also ask your AI to generate an import link. Share this format with it:
+                </p>
+                <div style="background:var(--surface2);border-radius:10px;padding:12px;font-size:12px;color:var(--text-muted);font-family:monospace;word-break:break-all;line-height:1.6;margin-bottom:12px" id="url-format-box"></div>
+                <button class="btn btn-o" onclick="copyUrlFormat()" style="font-size:14px">📋 Copy link format</button>
+            </div>
+        </div>
+
+        <div class="ss">
             <div class="ss-t">Danger Zone</div>
             <div class="surf">
                 <button class="btn" style="background:#3b0a0a;color:#fca5a5;border:1px solid #7f1d1d" onclick="resetAll()">
@@ -673,6 +709,36 @@
             AI Chat
         </button>
     </nav>
+
+    <!-- QUICK IMPORT MODAL -->
+    <div class="mo" id="qi-modal" onclick="if(event.target===this)closeQI()">
+        <div class="m">
+            <div class="mh"></div>
+            <h2>📋 Paste word list</h2>
+            <p style="color:var(--text-muted);font-size:14px;margin-bottom:12px;line-height:1.5">
+                Paste the list from ChatGPT or Claude. One word per line:
+            </p>
+            <div style="background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;color:#818cf8;font-family:monospace;line-height:1.9">
+                procrastinate - to delay doing something<br>
+                resilient - able to recover quickly<br>
+                eloquent - fluent and persuasive
+            </div>
+            <textarea class="fi" id="qi-text" style="min-height:150px;font-size:15px"
+                placeholder="Paste your list here..." oninput="previewQI()"></textarea>
+            <div id="qi-preview" style="font-size:13px;color:var(--primary-light);margin:8px 0 14px;min-height:20px;font-weight:600"></div>
+            <div class="m-acts">
+                <button class="mb mb-edit" id="qi-confirm" onclick="doQI()" disabled style="opacity:0.4">✅ Add cards</button>
+                <button class="mb mb-close" onclick="closeQI()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- URL IMPORT BANNER -->
+    <div id="url-import-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:400;background:linear-gradient(135deg,#312e81,#1e1b4b);border-bottom:1px solid #4338ca;padding:14px 16px 14px;text-align:center">
+        <div style="font-size:14px;font-weight:700;color:#e0e7ff;margin-bottom:10px" id="url-import-msg">Adding cards from link...</div>
+        <button onclick="confirmUrlImport()" style="background:#6366f1;color:white;border:none;border-radius:10px;padding:10px 20px;font-size:15px;font-weight:700;cursor:pointer;margin-right:8px">✅ Add cards</button>
+        <button onclick="cancelUrlImport()" style="background:transparent;color:#a5b4fc;border:1px solid #4338ca;border-radius:10px;padding:10px 16px;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
+    </div>
 
     <!-- MODAL -->
     <div class="mo" id="modal" onclick="if(event.target===this)closeModal()">
@@ -1095,7 +1161,142 @@ function toast(msg) {
     setTimeout(()=>el.classList.remove('show'),2400);
 }
 
-// Swipe to flip (study card)
+// ─── Quick Import ─────────────────────────────────────────────────────────────
+function openQI() {
+    document.getElementById('qi-text').value='';
+    document.getElementById('qi-preview').textContent='';
+    document.getElementById('qi-confirm').disabled=true;
+    document.getElementById('qi-confirm').style.opacity='0.4';
+    document.getElementById('qi-modal').classList.add('show');
+    setTimeout(()=>document.getElementById('qi-text').focus(),350);
+}
+
+function closeQI() { document.getElementById('qi-modal').classList.remove('show'); }
+
+function parseList(text) {
+    const seps = [' - ', ' – ', ': ', ' | ', ' = ', '\t'];
+    return text.split('\n')
+        .map(l=>l.trim().replace(/^\d+[\.\)\-]\s*/,''))
+        .filter(Boolean)
+        .map(line=>{
+            for (const s of seps) {
+                const i = line.indexOf(s);
+                if (i>0) return { front: line.slice(0,i).trim(), back: line.slice(i+s.length).trim() };
+            }
+            return null;
+        })
+        .filter(c=>c&&c.front&&c.back);
+}
+
+function previewQI() {
+    const parsed = parseList(document.getElementById('qi-text').value);
+    const el = document.getElementById('qi-preview');
+    const btn = document.getElementById('qi-confirm');
+    if (parsed.length) {
+        el.textContent = `✓ Found ${parsed.length} word${parsed.length>1?'s':''}`;
+        btn.disabled=false; btn.style.opacity='1';
+    } else {
+        el.textContent = '';
+        btn.disabled=true; btn.style.opacity='0.4';
+    }
+}
+
+function doQI() {
+    const parsed = parseList(document.getElementById('qi-text').value);
+    if (!parsed.length) return;
+    const all = cards();
+    parsed.forEach(c=>all.push(mkCard(c.front, c.back)));
+    save(K, all);
+    closeQI();
+    updateHome();
+    toast(`Added ${parsed.length} card${parsed.length>1?'s':''}! 🎉`);
+}
+
+// ─── URL Import ───────────────────────────────────────────────────────────────
+let pendingUrlCards = [];
+
+function checkUrlImport() {
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get('add');
+    if (!raw) return;
+
+    try {
+        // Try base64 JSON first, then plain text list
+        let parsed;
+        try {
+            parsed = JSON.parse(atob(raw));
+        } catch {
+            parsed = parseList(decodeURIComponent(raw).replace(/,/g,'\n').replace(/\|/g,' - '));
+        }
+
+        if (!Array.isArray(parsed) || !parsed.length) return;
+
+        // Normalize format {front,back} or {f,b}
+        pendingUrlCards = parsed.map(c=>({
+            front: c.front||c.f||'',
+            back: c.back||c.b||'',
+            example: c.example||c.e||''
+        })).filter(c=>c.front&&c.back);
+
+        if (!pendingUrlCards.length) return;
+
+        document.getElementById('url-import-msg').textContent =
+            `Add ${pendingUrlCards.length} card${pendingUrlCards.length>1?'s':''} from link? (${pendingUrlCards.slice(0,3).map(c=>c.front).join(', ')}${pendingUrlCards.length>3?'…':''})`;
+        document.getElementById('url-import-banner').style.display='block';
+        window.history.replaceState({}, '', window.location.pathname);
+    } catch(e) { console.error('URL import error', e); }
+}
+
+function confirmUrlImport() {
+    const all = cards();
+    pendingUrlCards.forEach(c=>all.push(mkCard(c.front, c.back, c.example)));
+    save(K, all);
+    document.getElementById('url-import-banner').style.display='none';
+    updateHome();
+    toast(`Added ${pendingUrlCards.length} card${pendingUrlCards.length>1?'s':''}! 🎉`);
+    pendingUrlCards=[];
+}
+
+function cancelUrlImport() {
+    document.getElementById('url-import-banner').style.display='none';
+    pendingUrlCards=[];
+}
+
+// ─── AI Integration helpers ────────────────────────────────────────────────────
+function copyAIPrompt() {
+    const text = document.getElementById('ai-prompt-box').textContent;
+    navigator.clipboard.writeText(text).then(()=>toast('Prompt copied!')).catch(()=>{
+        const ta=document.createElement('textarea');
+        ta.value=text; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); ta.remove(); toast('Prompt copied!');
+    });
+}
+
+function copyUrlFormat() {
+    const base = location.origin + location.pathname;
+    const example = btoa(JSON.stringify([
+        {front:'procrastinate',back:'to delay doing something'},
+        {front:'resilient',back:'able to recover quickly'}
+    ]));
+    const text = `To generate an import link for my flashcard app, encode the word list as base64 JSON and put it in this URL:\n\n${base}?add=BASE64_HERE\n\nExample:\n${base}?add=${example}\n\nJSON format: [{"front":"English word","back":"translation"},...]`;
+    navigator.clipboard.writeText(text).then(()=>toast('Format copied!')).catch(()=>{
+        const ta=document.createElement('textarea');
+        ta.value=text; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); ta.remove(); toast('Format copied!');
+    });
+}
+
+// Fill URL format box on settings load
+const _origLoadSettings = loadSettingsUI;
+function loadSettingsUI() {
+    _origLoadSettings();
+    const base = location.origin + location.pathname;
+    const ex = btoa(JSON.stringify([{front:'procrastinate',back:'to delay doing something'},{front:'resilient',back:'able to recover quickly'}]));
+    const el = document.getElementById('url-format-box');
+    if (el) el.textContent = `${base}?add=${ex}`;
+}
+
+// ─── Swipe to flip (study card) ───────────────────────────────────────────────
 let tx=0,ty=0;
 document.getElementById('fc-wrap').addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
 document.getElementById('fc-wrap').addEventListener('touchend',e=>{
@@ -1104,6 +1305,7 @@ document.getElementById('fc-wrap').addEventListener('touchend',e=>{
 },{passive:true});
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
+checkUrlImport();
 updateHome();
 </script>
 </body>
