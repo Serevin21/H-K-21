@@ -1224,7 +1224,8 @@ function checkUrlImport() {
         // Try base64 JSON first, then plain text list
         let parsed;
         try {
-            parsed = JSON.parse(atob(raw));
+            const b64 = raw.replace(/-/g,'+').replace(/_/g,'/');
+            parsed = JSON.parse(atob(b64));
         } catch {
             parsed = parseList(decodeURIComponent(raw).replace(/,/g,'\n').replace(/\|/g,' - '));
         }
