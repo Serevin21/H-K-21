@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="description" content="Anki карточки для изучения английского с AI репетитором">
+    <title>English Cards</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        :root {
+            --primary: #6366f1;
+            --primary-light: #818cf8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg: #08080f;
+            --surface: #111120;
+            --surface2: #1a1a2e;
+            --border: #252540;
+            --text: #e2e8f0;
+            --text-muted: #64748b;
+            --radius: 16px;
+            --nav-h: 68px;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        #app {
+            max-width: 480px;
+            margin: 0 auto;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* Views */
+        .view {
+            display: none;
+            padding: 0 16px calc(var(--nav-h) + 20px);
+            min-height: 100vh;
+        }
+        .view.active { display: block; }
+
+        /* Header */
+        .hdr {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 0 16px;
+        }
+        .hdr h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+
+        /* Bottom Nav */
+        .bnav {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 480px;
+            height: var(--nav-h);
+            background: rgba(17,17,32,0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+            z-index: 100;
+        }
+
+        .ni {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            padding: 6px 14px;
+            border-radius: 12px;
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            border: none;
+            background: none;
+            transition: color 0.2s;
+        }
+        .ni svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.2s; }
+        .ni.active { color: var(--primary); }
+        .ni.active svg { transform: scale(1.1); }
+
+        /* Cards */
+        .surf {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px;
+            margin-bottom: 12px;
+        }
+
+        /* Stats grid */
+        .sg {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .sc {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            text-align: center;
+        }
+        .sv { font-size: 36px; font-weight: 800; background: linear-gradient(135deg, var(--primary), var(--primary-light)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .sl { font-size: 12px; color: var(--text-muted); margin-top: 2px; font-weight: 500; }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 15px 24px;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            transition: transform 0.15s, opacity 0.15s;
+            width: 100%;
+            letter-spacing: -0.2px;
+        }
+        .btn:active { transform: scale(0.97); opacity: 0.9; }
+        .btn-p { background: linear-gradient(135deg, #6366f1, #818cf8); color: white; box-shadow: 0 4px 20px rgba(99,102,241,0.3); }
+        .btn-o { background: transparent; border: 1px solid var(--border); color: var(--text); }
+        .btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+        /* Flashcard */
+        .fc-wrap {
+            perspective: 1200px;
+            height: 260px;
+            margin: 16px 0;
+            cursor: pointer;
+            user-select: none;
+        }
+        .fc {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .fc.flipped { transform: rotateY(180deg); }
+        .fc-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            text-align: center;
+        }
+        .fc-back { transform: rotateY(180deg); }
+        .fc-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 600; margin-bottom: 14px; }
+        .fc-word { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.2; }
+        .fc-trans { font-size: 22px; font-weight: 700; color: var(--primary-light); margin-bottom: 10px; }
+        .fc-ex { font-size: 13px; color: var(--text-muted); font-style: italic; line-height: 1.5; max-width: 280px; }
+        .fc-hint { font-size: 12px; color: var(--text-muted); position: absolute; bottom: 16px; display: flex; align-items: center; gap: 5px; }
+
+        /* Rating buttons */
+        .rbg {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 8px;
+            margin-top: 14px;
+        }
+        .rb {
+            padding: 12px 6px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 700;
+            transition: transform 0.15s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+        }
+        .rb small { font-size: 10px; font-weight: 400; opacity: 0.75; }
+        .rb:active { transform: scale(0.94); }
+        .ra { background: #3b0a0a; color: #fca5a5; border: 1px solid #7f1d1d; }
+        .rh { background: #3b1a05; color: #fdba74; border: 1px solid #7c2d12; }
+        .rg { background: #042010; color: #86efac; border: 1px solid #14532d; }
+        .re { background: #060f35; color: #93c5fd; border: 1px solid #1e3a8a; }
+
+        /* Progress */
+        .pb { width: 100%; height: 5px; background: var(--surface2); border-radius: 999px; overflow: hidden; margin-bottom: 14px; }
+        .pf { height: 100%; background: linear-gradient(90deg, var(--primary), var(--primary-light)); border-radius: 999px; transition: width 0.4s ease; }
+
+        /* Form */
+        .fg { margin-bottom: 14px; }
+        .fl { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.8px; }
+        .fi {
+            width: 100%;
+            background: var(--surface);
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            color: var(--text);
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+        .fi:focus { border-color: var(--primary); }
+        textarea.fi { resize: none; min-height: 90px; }
+
+        /* Card list */
+        .cli {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .cli:active { border-color: var(--primary); }
+        .cli-w { font-size: 17px; font-weight: 700; }
+        .cli-t { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+        .cli-d { font-size: 11px; margin-top: 3px; }
+
+        /* Badge */
+        .badge {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 9px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .bd { background: var(--surface2); color: var(--primary-light); border: 1px solid var(--border); }
+        .bn { background: #042010; color: #86efac; border: 1px solid #14532d; }
+
+        /* Search */
+        .sw { position: relative; margin-bottom: 14px; }
+        .si { font-size: 16px; padding-left: 42px !important; }
+        .sic { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        .sic svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+        /* Chat */
+        .cm { display: flex; flex-direction: column; gap: 12px; padding-bottom: 100px; }
+        .msg { max-width: 86%; padding: 12px 16px; border-radius: 18px; font-size: 15px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+        .mu { background: linear-gradient(135deg, #6366f1, #818cf8); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+        .ma { background: var(--surface2); border: 1px solid var(--border); color: var(--text); align-self: flex-start; border-bottom-left-radius: 4px; }
+
+        .cia {
+            position: fixed;
+            bottom: var(--nav-h);
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 480px;
+            background: rgba(8,8,15,0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border);
+            padding: 10px 12px;
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+        .ci {
+            flex: 1;
+            background: var(--surface);
+            border: 1.5px solid var(--border);
+            border-radius: 22px;
+            padding: 11px 16px;
+            color: var(--text);
+            font-size: 15px;
+            outline: none;
+            font-family: inherit;
+            resize: none;
+            max-height: 120px;
+            min-height: 44px;
+            transition: border-color 0.2s;
+            line-height: 1.4;
+        }
+        .ci:focus { border-color: var(--primary); }
+        .csb {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1, #818cf8);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            flex-shrink: 0;
+            transition: transform 0.15s;
+            box-shadow: 0 4px 12px rgba(99,102,241,0.4);
+        }
+        .csb:active { transform: scale(0.9); }
+        .csb svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+        .csb:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Chips */
+        .chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none; margin-bottom: 4px; }
+        .chips::-webkit-scrollbar { display: none; }
+        .chip { flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 8px 13px; font-size: 13px; color: var(--text-muted); cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+        .chip:active { background: var(--primary); color: white; border-color: var(--primary); transform: scale(0.96); }
+
+        /* Typing */
+        .ti { display: flex; gap: 5px; align-items: center; padding: 13px 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 18px; border-bottom-left-radius: 4px; align-self: flex-start; }
+        .td { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); animation: td 1.2s infinite; }
+        .td:nth-child(2) { animation-delay: 0.2s; }
+        .td:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes td { 0%,60%,100% { opacity:0.3; transform:translateY(0); } 30% { opacity:1; transform:translateY(-5px); } }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-10px);
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 12px 20px;
+            border-radius: 14px;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 300;
+            opacity: 0;
+            transition: opacity 0.25s, transform 0.25s;
+            white-space: nowrap;
+            pointer-events: none;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        /* Icon button */
+        .ib { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .ib:active { transform: scale(0.9); }
+        .ib svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+        /* Streak */
+        .sb {
+            background: linear-gradient(135deg, #1e1b4b, #312e81);
+            border: 1px solid #4338ca;
+            border-radius: var(--radius);
+            padding: 16px 18px;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .sn { font-size: 30px; font-weight: 800; color: #fbbf24; }
+        .st { font-size: 13px; color: #c7d2fe; font-weight: 500; }
+
+        /* Empty state */
+        .empty { text-align: center; padding: 50px 20px; }
+        .empty .ei { font-size: 60px; margin-bottom: 14px; }
+        .empty h3 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+        .empty p { color: var(--text-muted); font-size: 15px; line-height: 1.5; }
+
+        /* Modal */
+        .mo {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s;
+        }
+        .mo.show { opacity: 1; pointer-events: all; }
+        .m {
+            background: var(--surface);
+            border-radius: 22px 22px 0 0;
+            padding: 20px 16px 40px;
+            width: 100%;
+            max-width: 480px;
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .mo.show .m { transform: translateY(0); }
+        .mh { width: 40px; height: 4px; background: var(--border); border-radius: 999px; margin: 0 auto 18px; }
+        .m h2 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+        .m-trans { font-size: 16px; color: var(--primary-light); font-weight: 600; margin-bottom: 6px; }
+        .m-ex { font-size: 14px; color: var(--text-muted); font-style: italic; line-height: 1.5; margin-bottom: 6px; }
+        .m-due { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+        .m-acts { display: flex; flex-direction: column; gap: 8px; }
+        .mb { width: 100%; padding: 14px; border-radius: 13px; font-size: 16px; font-weight: 700; cursor: pointer; border: none; transition: transform 0.15s; }
+        .mb:active { transform: scale(0.97); }
+        .mb-edit { background: var(--surface2); border: 1px solid var(--border); color: var(--text); }
+        .mb-del { background: #3b0a0a; border: 1px solid #7f1d1d; color: #fca5a5; }
+        .mb-close { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+
+        /* Spinner */
+        .spin { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Settings */
+        .ss { margin-bottom: 22px; }
+        .ss-t { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+
+        /* Study complete */
+        .sc-wrap { text-align: center; padding: 50px 20px 30px; }
+        .sc-wrap .big { font-size: 72px; margin-bottom: 18px; }
+        .sc-wrap h2 { font-size: 26px; font-weight: 800; margin-bottom: 8px; }
+        .sc-wrap p { color: var(--text-muted); font-size: 15px; margin-bottom: 24px; }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="toast" id="toast"></div>
+
+    <!-- HOME -->
+    <div class="view active" id="view-home">
+        <div class="hdr">
+            <h1>English Cards 🇬🇧</h1>
+            <div class="badge bn" id="h-new">0 новых</div>
+        </div>
+
+        <div class="sb">
+            <div>
+                <div class="st">Серия дней</div>
+                <div class="sn" id="h-streak">0 🔥</div>
+            </div>
+            <div style="text-align:right">
+                <div class="st">Всего карточек</div>
+                <div class="sn" id="h-total">0</div>
+            </div>
+        </div>
+
+        <div class="sg">
+            <div class="sc">
+                <div class="sv" id="h-due">0</div>
+                <div class="sl">К повторению</div>
+            </div>
+            <div class="sc">
+                <div class="sv" id="h-done">0</div>
+                <div class="sl">Изучено сегодня</div>
+            </div>
+        </div>
+
+        <button class="btn btn-p" onclick="goStudy()">
+            <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Начать повторение
+        </button>
+        <div style="margin-top:10px">
+            <button class="btn btn-o" onclick="showView('add')">+ Добавить карточку</button>
+        </div>
+    </div>
+
+    <!-- STUDY -->
+    <div class="view" id="view-study">
+        <div class="hdr">
+            <button class="ib" onclick="showView('home')">
+                <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span id="s-prog" style="font-size:14px;color:var(--text-muted);font-weight:600"></span>
+            <div style="width:38px"></div>
+        </div>
+        <div class="pb"><div class="pf" id="s-pb" style="width:0%"></div></div>
+
+        <div id="s-content">
+            <div class="fc-wrap" id="fc-wrap" onclick="flipCard()">
+                <div class="fc" id="fc">
+                    <div class="fc-face">
+                        <div class="fc-label">Английский</div>
+                        <div class="fc-word" id="fc-front">—</div>
+                        <div class="fc-hint">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg>
+                            Нажми, чтобы перевернуть
+                        </div>
+                    </div>
+                    <div class="fc-face fc-back">
+                        <div class="fc-label">Перевод</div>
+                        <div class="fc-trans" id="fc-trans">—</div>
+                        <div class="fc-ex" id="fc-ex"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="s-rate" style="display:none">
+                <p style="text-align:center;font-size:13px;color:var(--text-muted);margin-bottom:10px;font-weight:500">Как хорошо ты знаешь это слово?</p>
+                <div class="rbg">
+                    <button class="rb ra" onclick="rate(1)">Снова<small>&lt;1 мин</small></button>
+                    <button class="rb rh" onclick="rate(2)">Сложно<small id="ri-hard">—</small></button>
+                    <button class="rb rg" onclick="rate(3)">Хорошо<small id="ri-good">—</small></button>
+                    <button class="rb re" onclick="rate(4)">Легко<small id="ri-easy">—</small></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="sc-wrap" id="s-done" style="display:none">
+            <div class="big">🎉</div>
+            <h2>Отлично!</h2>
+            <p>Ты повторил все карточки на сегодня</p>
+            <button class="btn btn-p" onclick="showView('home')" style="max-width:280px;margin:0 auto 10px">На главную</button>
+            <button class="btn btn-o" onclick="goStudy(true)" style="max-width:280px;margin:0 auto">Повторить ещё раз</button>
+        </div>
+    </div>
+
+    <!-- ADD / EDIT -->
+    <div class="view" id="view-add">
+        <div class="hdr">
+            <h1 id="add-ttl">Новая карточка</h1>
+        </div>
+        <input type="hidden" id="edit-id">
+
+        <div class="fg">
+            <label class="fl">Английское слово / фраза</label>
+            <input class="fi" id="in-front" type="text" placeholder="e.g. to procrastinate" autocomplete="off" autocorrect="off">
+        </div>
+        <div class="fg">
+            <label class="fl">Перевод на русский</label>
+            <input class="fi" id="in-back" type="text" placeholder="е.г. откладывать на потом" autocomplete="off">
+        </div>
+        <div class="fg">
+            <label class="fl">Пример предложения (необязательно)</label>
+            <textarea class="fi" id="in-ex" placeholder="e.g. I tend to procrastinate when I feel overwhelmed."></textarea>
+        </div>
+        <div class="fg">
+            <label class="fl">Заметки (необязательно)</label>
+            <input class="fi" id="in-notes" type="text" placeholder="синонимы, контекст, произношение..." autocomplete="off">
+        </div>
+
+        <button class="btn btn-p" onclick="saveCard()">Сохранить</button>
+        <button class="btn btn-o" onclick="cancelAdd()" style="margin-top:10px">Отмена</button>
+    </div>
+
+    <!-- CARDS LIST -->
+    <div class="view" id="view-cards">
+        <div class="hdr">
+            <h1>Карточки</h1>
+            <div class="badge bd" id="cl-cnt">0</div>
+        </div>
+        <div class="sw">
+            <div class="sic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+            <input class="fi si" id="cl-search" type="text" placeholder="Поиск..." oninput="renderList()">
+        </div>
+        <div id="cl-list"></div>
+    </div>
+
+    <!-- CHAT -->
+    <div class="view" id="view-chat">
+        <div class="hdr">
+            <h1>AI Репетитор 🤖</h1>
+            <button class="ib" onclick="clearChat()" title="Очистить чат">
+                <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            </button>
+        </div>
+
+        <div id="chat-nokey" style="display:none">
+            <div class="empty">
+                <div class="ei">🔑</div>
+                <h3>Нужен API ключ</h3>
+                <p>Добавь свой Claude API ключ в настройках, чтобы использовать AI репетитора</p>
+                <button class="btn btn-p" onclick="showView('settings')" style="margin-top:20px;max-width:240px">Настройки</button>
+            </div>
+        </div>
+
+        <div id="chat-wrap" style="display:none">
+            <div class="chips" id="chat-chips">
+                <div class="chip" onclick="qsend('Объясни разницу между Present Perfect и Past Simple простыми словами')">Present Perfect vs Past Simple</div>
+                <div class="chip" onclick="qsend('Дай 5 полезных идиом на английском с примерами и переводом')">Идиомы</div>
+                <div class="chip" onclick="qsend('Какие слова на английском чаще всего путают? Объясни их отличия')">Похожие слова</div>
+                <div class="chip" onclick="qsend('Напиши короткий диалог на английском на тему знакомства')">Диалог</div>
+                <div class="chip" onclick="qsend('Какие 10 самых важных глаголов нужно знать для разговорного английского?')">Топ глаголы</div>
+            </div>
+            <div class="cm" id="chat-msgs"></div>
+        </div>
+
+        <div class="cia" id="chat-ia" style="display:none">
+            <textarea class="ci" id="chat-in" placeholder="Спроси что-нибудь по-английски..." rows="1"
+                onkeydown="chatKey(event)" oninput="autoH(this)"></textarea>
+            <button class="csb" onclick="sendMsg()" id="csb">
+                <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="view" id="view-settings">
+        <div class="hdr"><h1>Настройки</h1></div>
+
+        <div class="ss">
+            <div class="ss-t">AI Репетитор (Claude)</div>
+            <div class="surf">
+                <div class="fg">
+                    <label class="fl">Claude API ключ</label>
+                    <input class="fi" id="api-in" type="password" placeholder="sk-ant-api03-...">
+                </div>
+                <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;line-height:1.5">
+                    Ключ хранится только в памяти твоего браузера. Получи его на <strong style="color:var(--primary-light)">console.anthropic.com</strong>
+                </p>
+                <button class="btn btn-p" onclick="saveKey()">Сохранить ключ</button>
+            </div>
+        </div>
+
+        <div class="ss">
+            <div class="ss-t">Данные</div>
+            <div class="surf">
+                <button class="btn btn-o" onclick="exportCards()" style="margin-bottom:10px">⬇ Экспорт (JSON)</button>
+                <button class="btn btn-o" onclick="document.getElementById(\"imp-f\").click()">⬆ Импорт (JSON)</button>
+                <input type="file" id="imp-f" accept=".json" style="display:none" onchange="importCards(event)">
+            </div>
+        </div>
+
+        <div class="ss">
+            <div class="ss-t">Опасная зона</div>
+            <div class="surf">
+                <button class="btn" style="background:#3b0a0a;color:#fca5a5;border:1px solid #7f1d1d" onclick="resetAll()">
+                    🗑 Удалить все карточки
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <nav class="bnav">
+        <button class="ni active" id="nav-home" onclick="showView('home')">
+            <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            Главная
+        </button>
+        <button class="ni" id="nav-study" onclick="goStudy()">
+            <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            Учёба
+        </button>
+        <button class="ni" id="nav-add" onclick="showView('add')">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            Добавить
+        </button>
+        <button class="ni" id="nav-cards" onclick="showView('cards')">
+            <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            Карточки
+        </button>
+        <button class="ni" id="nav-chat" onclick="showView('chat')">
+            <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            AI Чат
+        </button>
+    </nav>
+
+    <!-- MODAL -->
+    <div class="mo" id="modal" onclick="if(event.target===this)closeModal()">
+        <div class="m">
+            <div class="mh"></div>
+            <h2 id="m-word">—</h2>
+            <div class="m-trans" id="m-trans"></div>
+            <div class="m-ex" id="m-ex"></div>
+            <div class="m-due" id="m-due"></div>
+            <div class="m-acts">
+                <button class="mb mb-edit" onclick="editFromModal()">✏️ Редактировать</button>
+                <button class="mb mb-del" onclick="delFromModal()">🗑️ Удалить</button>
+                <button class="mb mb-close" onclick="closeModal()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ─── Storage ──────────────────────────────────────────────────────────────────
+const K = 'ec_cards', KS = 'ec_settings', KC = 'ec_chat';
+
+const load = k => { try { return JSON.parse(localStorage.getItem(k)) || (k===K?[]:(k===KC?[]:{})); } catch { return k===K?[]:(k===KC?[]:{}); } };
+const save = (k,v) => localStorage.setItem(k, JSON.stringify(v));
+const cards = () => load(K);
+const cfg = () => load(KS);
+const saveCfg = s => save(KS, s);
+const chatH = () => load(KC);
+const saveChatH = h => save(KC, h.slice(-60));
+
+// ─── SM-2 ─────────────────────────────────────────────────────────────────────
+const today = () => new Date().toISOString().split('T')[0];
+
+function mkCard(f, b, ex='', notes='') {
+    return { id: Date.now().toString(36)+Math.random().toString(36).slice(2), front:f, back:b, example:ex, notes, interval:0, ef:2.5, reps:0, due:today(), created:new Date().toISOString() };
+}
+
+const isDue = c => c.due <= today();
+
+function calcNext(c) {
+    const {ef, interval:iv, reps} = c;
+    const ni = (r) => {
+        if (r===1) return 1;
+        if (r===2) return Math.max(1, Math.round((iv||1)*1.2));
+        if (r===3) { if(reps===0)return 1; if(reps===1)return 6; return Math.round(iv*ef); }
+        if(reps===0)return 4; if(reps===1)return 7; return Math.round(iv*(ef+0.15)*1.3);
+    };
+    return { hard: ni(2), good: ni(3), easy: ni(4) };
+}
+
+function applyRate(c, r) {
+    let {ef, interval:iv, reps} = c;
+    if (r===1) { iv=1; reps=0; }
+    else if (r===2) { ef=Math.max(1.3,ef-0.15); iv=Math.max(1,Math.round((iv||1)*1.2)); reps++; }
+    else if (r===3) { if(reps===0)iv=1; else if(reps===1)iv=6; else iv=Math.round(iv*ef); reps++; }
+    else { ef=Math.min(3,ef+0.15); if(reps===0)iv=4; else if(reps===1)iv=7; else iv=Math.round(iv*(ef+0.15)*1.3); reps++; }
+    const d = new Date(); d.setDate(d.getDate()+iv);
+    return {...c, ef, interval:iv, reps, due:d.toISOString().split('T')[0]};
+}
+
+const fmtDays = d => d===1?'1 день':d<7?`${d} дн.`:d<30?`${Math.round(d/7)} нед.`:`${Math.round(d/30)} мес.`;
+
+// ─── Study State ──────────────────────────────────────────────────────────────
+let queue=[], qi=0, flipped=false, doneToday=0;
+
+function goStudy(force=false) {
+    setActive('study');
+    const all = cards();
+    queue = force ? [...all] : all.filter(isDue);
+    qi = 0;
+    flipped = false;
+
+    const sc = document.getElementById('s-done');
+    const sContent = document.getElementById('s-content');
+
+    if (queue.length===0) {
+        sContent.style.display='none';
+        sc.style.display='block';
+        sc.querySelector('h2').textContent = 'Всё повторено!';
+        sc.querySelector('p').textContent = 'На сегодня нечего повторять. Отличная работа! 💪';
+        return;
+    }
+    sContent.style.display='block';
+    sc.style.display='none';
+    showCard();
+}
+
+function showCard() {
+    if (qi>=queue.length) {
+        document.getElementById('s-content').style.display='none';
+        document.getElementById('s-done').style.display='block';
+        updateHome();
+        return;
+    }
+    const c = queue[qi];
+    const nx = calcNext(c);
+    document.getElementById('fc-front').textContent = c.front;
+    document.getElementById('fc-trans').textContent = c.back;
+    document.getElementById('fc-ex').textContent = c.example||'';
+    document.getElementById('ri-hard').textContent = fmtDays(nx.hard);
+    document.getElementById('ri-good').textContent = fmtDays(nx.good);
+    document.getElementById('ri-easy').textContent = fmtDays(nx.easy);
+    const pct = (qi/queue.length*100).toFixed(0);
+    document.getElementById('s-pb').style.width = pct+'%';
+    document.getElementById('s-prog').textContent = `${qi} / ${queue.length}`;
+    flipped=false;
+    document.getElementById('fc').classList.remove('flipped');
+    document.getElementById('s-rate').style.display='none';
+}
+
+function flipCard() {
+    if (flipped) return;
+    flipped=true;
+    document.getElementById('fc').classList.add('flipped');
+    setTimeout(()=>{ document.getElementById('s-rate').style.display='block'; }, 280);
+}
+
+function rate(r) {
+    const all = cards();
+    const idx = all.findIndex(c=>c.id===queue[qi].id);
+    if (idx!==-1) { all[idx]=applyRate(all[idx],r); save(K,all); }
+    if (r===1) queue.push(queue[qi]);
+    doneToday++;
+    trackStreak();
+    qi++;
+    showCard();
+}
+
+function trackStreak() {
+    const s = cfg();
+    if (s.streakDate===today()) { s.doneToday=(s.doneToday||0)+1; }
+    else {
+        const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
+        const yd = yesterday.toISOString().split('T')[0];
+        s.streak = (s.streakDate===yd) ? (s.streak||0)+1 : 1;
+        s.streakDate = today();
+        s.doneToday = 1;
+    }
+    saveCfg(s);
+    document.getElementById('h-done').textContent = s.doneToday;
+}
+
+// ─── Views ────────────────────────────────────────────────────────────────────
+function showView(name) {
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+    document.getElementById('view-'+name).classList.add('active');
+    const ni = document.getElementById('nav-'+name);
+    if(ni) ni.classList.add('active');
+    if(name==='home') updateHome();
+    if(name==='cards') renderList();
+    if(name==='chat') initChat();
+    if(name==='settings') loadSettingsUI();
+    if(name==='add') { /* keep form state */ }
+    window.scrollTo(0,0);
+}
+
+function setActive(name) {
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+    document.getElementById('view-'+name).classList.add('active');
+    const ni = document.getElementById('nav-'+name);
+    if(ni) ni.classList.add('active');
+}
+
+function updateHome() {
+    const all = cards();
+    const due = all.filter(isDue).length;
+    const nw = all.filter(c=>c.reps===0).length;
+    const s = cfg();
+    const streak = (() => {
+        if (!s.streakDate) return 0;
+        const yd = new Date(); yd.setDate(yd.getDate()-1);
+        const ydStr = yd.toISOString().split('T')[0];
+        if (s.streakDate===today()||s.streakDate===ydStr) return s.streak||0;
+        return 0;
+    })();
+    document.getElementById('h-due').textContent = due;
+    document.getElementById('h-total').textContent = all.length;
+    document.getElementById('h-new').textContent = nw+' новых';
+    document.getElementById('h-streak').textContent = streak+' 🔥';
+    document.getElementById('h-done').textContent = s.streakDate===today() ? (s.doneToday||0) : 0;
+}
+
+// ─── Card CRUD ────────────────────────────────────────────────────────────────
+function saveCard() {
+    const f = document.getElementById('in-front').value.trim();
+    const b = document.getElementById('in-back').value.trim();
+    if (!f||!b) { toast('Заполни слово и перевод!'); return; }
+    const ex = document.getElementById('in-ex').value.trim();
+    const notes = document.getElementById('in-notes').value.trim();
+    const editId = document.getElementById('edit-id').value;
+    const all = cards();
+    if (editId) {
+        const i = all.findIndex(c=>c.id===editId);
+        if (i!==-1) all[i]={...all[i],front:f,back:b,example:ex,notes};
+        toast('Карточка обновлена ✓');
+    } else {
+        all.push(mkCard(f,b,ex,notes));
+        toast('Карточка добавлена ✓');
+    }
+    save(K,all);
+    clearForm();
+    showView('home');
+}
+
+function cancelAdd() { clearForm(); showView('home'); }
+
+function clearForm() {
+    document.getElementById('add-ttl').textContent='Новая карточка';
+    document.getElementById('edit-id').value='';
+    ['in-front','in-back','in-ex','in-notes'].forEach(id=>document.getElementById(id).value='');
+}
+
+// ─── Card List ────────────────────────────────────────────────────────────────
+function renderList() {
+    const all = cards();
+    const q = document.getElementById('cl-search').value.toLowerCase();
+    const f = q ? all.filter(c=>c.front.toLowerCase().includes(q)||c.back.toLowerCase().includes(q)) : all;
+    document.getElementById('cl-cnt').textContent = f.length+' карточек';
+    const el = document.getElementById('cl-list');
+    if (!f.length) {
+        el.innerHTML=`<div class="empty"><div class="ei">📭</div><h3>${q?'Не найдено':'Пока пусто'}</h3><p>${q?'Попробуй другой запрос':'Добавь первую карточку!'}</p></div>`;
+        return;
+    }
+    el.innerHTML=f.map(c=>`
+        <div class="cli" onclick="openModal('${esc(c.id)}')">
+            <div style="flex:1;min-width:0">
+                <div class="cli-w">${esc(c.front)}</div>
+                <div class="cli-t">${esc(c.back)}</div>
+                <div class="cli-d" style="color:${isDue(c)?'#f87171':'var(--text-muted)'}">${isDue(c)?'🔴 К повторению':'✅ '+c.due}</div>
+            </div>
+            <div class="badge ${c.reps===0?'bn':'bd'}">${c.reps===0?'Новая':'#'+c.reps}</div>
+        </div>`).join('');
+}
+
+// ─── Modal ────────────────────────────────────────────────────────────────────
+let selId=null;
+
+function openModal(id) {
+    selId=id;
+    const c=cards().find(c=>c.id===id);
+    if(!c)return;
+    document.getElementById('m-word').textContent=c.front;
+    document.getElementById('m-trans').textContent=c.back;
+    document.getElementById('m-ex').textContent=c.example||'';
+    document.getElementById('m-due').textContent=isDue(c)?'🔴 К повторению сегодня':'✅ Следующее: '+c.due;
+    document.getElementById('modal').classList.add('show');
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('show'); selId=null; }
+
+function editFromModal() {
+    const id=selId; closeModal();
+    const c=cards().find(c=>c.id===id);
+    if(!c)return;
+    document.getElementById('add-ttl').textContent='Редактировать';
+    document.getElementById('edit-id').value=id;
+    document.getElementById('in-front').value=c.front;
+    document.getElementById('in-back').value=c.back;
+    document.getElementById('in-ex').value=c.example||'';
+    document.getElementById('in-notes').value=c.notes||'';
+    showView('add');
+}
+
+function delFromModal() {
+    if(!confirm('Удалить карточку?'))return;
+    const id=selId; closeModal();
+    save(K,cards().filter(c=>c.id!==id));
+    renderList(); toast('Удалено');
+}
+
+// ─── Chat ─────────────────────────────────────────────────────────────────────
+let chatMessages=[], busy=false;
+
+function initChat() {
+    const hasKey=!!cfg().apiKey;
+    document.getElementById('chat-nokey').style.display=hasKey?'none':'block';
+    document.getElementById('chat-wrap').style.display=hasKey?'block':'none';
+    document.getElementById('chat-ia').style.display=hasKey?'flex':'none';
+    if(!hasKey)return;
+    chatMessages=chatH();
+    renderChat();
+    if(!chatMessages.length) {
+        addAI('Привет! 👋 Я твой AI репетитор по английскому языку. Могу объяснить грамматику, дать примеры предложений, помочь с произношением и всем остальным.\n\nЧто изучаем сегодня?');
+    }
+}
+
+function renderChat() {
+    const el=document.getElementById('chat-msgs');
+    el.innerHTML=chatMessages.map(m=>`<div class="msg ${m.role==='user'?'mu':'ma'}">${esc(m.content)}</div>`).join('');
+    setTimeout(()=>el.scrollTop=el.scrollHeight,50);
+}
+
+function addAI(text) {
+    chatMessages.push({role:'assistant',content:text});
+    saveChatH(chatMessages);
+    renderChat();
+}
+
+async function sendMsg() {
+    const el=document.getElementById('chat-in');
+    const txt=el.value.trim();
+    if(!txt||busy)return;
+    el.value=''; el.style.height='';
+    chatMessages.push({role:'user',content:txt});
+    saveChatH(chatMessages);
+    renderChat();
+    await callAPI();
+}
+
+async function qsend(txt) {
+    if(busy)return;
+    chatMessages.push({role:'user',content:txt});
+    saveChatH(chatMessages);
+    renderChat();
+    await callAPI();
+}
+
+async function callAPI() {
+    const key=cfg().apiKey;
+    if(!key)return;
+    busy=true;
+    const msgsEl=document.getElementById('chat-msgs');
+    const td=document.createElement('div');
+    td.className='ti'; td.id='td';
+    td.innerHTML='<div class="td"></div><div class="td"></div><div class="td"></div>';
+    msgsEl.appendChild(td);
+    msgsEl.scrollTop=msgsEl.scrollHeight;
+
+    const btn=document.getElementById('csb');
+    btn.innerHTML='<div class="spin"></div>'; btn.disabled=true;
+
+    const sys=`Ты дружелюбный и терпеливый репетитор по английскому языку. Пользователь — русскоязычный, учит английский. Отвечай на русском, но примеры всегда пиши на английском с переводом в скобках. Объясняй просто. Когда объясняешь слово — дай: транскрипцию, перевод, 2-3 примера, мнемонический приём для запоминания. Будь кратким и по делу.`;
+
+    try {
+        const r=await fetch('https://api.anthropic.com/v1/messages',{
+            method:'POST',
+            headers:{
+                'Content-Type':'application/json',
+                'x-api-key':key,
+                'anthropic-version':'2023-06-01',
+                'anthropic-dangerous-direct-browser-access':'true'
+            },
+            body:JSON.stringify({
+                model:'claude-haiku-4-5-20251001',
+                max_tokens:1024,
+                system:sys,
+                messages:chatMessages.map(m=>({role:m.role,content:m.content}))
+            })
+        });
+        const data=await r.json();
+        document.getElementById('td')?.remove();
+        if(data.error) throw new Error(data.error.message);
+        addAI(data.content[0].text);
+    } catch(e) {
+        document.getElementById('td')?.remove();
+        addAI('❌ Ошибка: '+(e.message||'Проверь API ключ в настройках'));
+    } finally {
+        busy=false;
+        btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
+        btn.disabled=false;
+    }
+}
+
+function clearChat() {
+    chatMessages=[]; saveChatH([]);
+    renderChat();
+    addAI('История очищена! Начнём сначала 😊 Что хочешь изучить?');
+}
+
+function chatKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} }
+function autoH(el) { el.style.height=''; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+function loadSettingsUI() {
+    const k=cfg().apiKey||'';
+    document.getElementById('api-in').value=k;
+}
+
+function saveKey() {
+    const k=document.getElementById('api-in').value.trim();
+    if(!k){toast('Введи API ключ!');return;}
+    const s=cfg(); s.apiKey=k; saveCfg(s);
+    toast('Ключ сохранён ✓');
+}
+
+function exportCards() {
+    const blob=new Blob([JSON.stringify(cards(),null,2)],{type:'application/json'});
+    const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:'english-cards-'+today()+'.json'});
+    a.click(); URL.revokeObjectURL(a.href);
+}
+
+function importCards(e) {
+    const f=e.target.files[0]; if(!f)return;
+    const r=new FileReader();
+    r.onload=ev=>{
+        try {
+            const imp=JSON.parse(ev.target.result);
+            if(!Array.isArray(imp))throw 0;
+            const ex=cards(); const ids=new Set(ex.map(c=>c.id));
+            const nw=imp.filter(c=>!ids.has(c.id));
+            save(K,[...ex,...nw]); toast(`Импортировано ${nw.length} карточек`);
+        } catch { toast('Ошибка файла'); }
+    };
+    r.readAsText(f); e.target.value='';
+}
+
+function resetAll() {
+    if(!confirm('Удалить ВСЕ карточки? Это нельзя отменить!'))return;
+    localStorage.removeItem(K); updateHome(); toast('Все карточки удалены');
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function toast(msg) {
+    const el=document.getElementById('toast');
+    el.textContent=msg; el.classList.add('show');
+    setTimeout(()=>el.classList.remove('show'),2400);
+}
+
+// Swipe to flip (study card)
+let tx=0,ty=0;
+document.getElementById('fc-wrap').addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+document.getElementById('fc-wrap').addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-tx, dy=e.changedTouches[0].clientY-ty;
+    if(Math.abs(dx)<10&&Math.abs(dy)<10) flipCard();
+},{passive:true});
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+updateHome();
+</script>
+</body>
+</html>
