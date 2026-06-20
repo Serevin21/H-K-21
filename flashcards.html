@@ -501,7 +501,11 @@
                     <div class="fc-face">
                         <div class="fc-label">English</div>
                         <div class="fc-word" id="fc-front">—</div>
-                        <div class="fc-hint">
+                        <button onclick="event.stopPropagation();speak(document.getElementById('fc-front').textContent)" style="margin-top:14px;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.4);border-radius:50px;padding:8px 20px;color:#a5b4fc;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;margin-left:auto;margin-right:auto">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                            Listen
+                        </button>
+                        <div class="fc-hint" style="margin-top:12px">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg>
                             Tap to flip
                         </div>
@@ -510,6 +514,10 @@
                         <div class="fc-label">Translation</div>
                         <div class="fc-trans" id="fc-trans">—</div>
                         <div class="fc-ex" id="fc-ex"></div>
+                        <button onclick="event.stopPropagation();speak(document.getElementById('fc-front').textContent)" style="margin-top:16px;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.4);border-radius:50px;padding:8px 20px;color:#a5b4fc;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;margin-left:auto;margin-right:auto">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                            Listen
+                        </button>
                     </div>
                 </div>
             </div>
@@ -744,7 +752,13 @@ Keep definitions concise (under 8 words). No numbering, no extra text.</div>
     <div class="mo" id="modal" onclick="if(event.target===this)closeModal()">
         <div class="m">
             <div class="mh"></div>
-            <h2 id="m-word">—</h2>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px">
+                <h2 id="m-word" style="margin:0">—</h2>
+                <button onclick="speak(document.getElementById('m-word').textContent)" style="flex-shrink:0;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.4);border-radius:50px;padding:8px 14px;color:#a5b4fc;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                    Listen
+                </button>
+            </div>
             <div class="m-trans" id="m-trans"></div>
             <div class="m-ex" id="m-ex"></div>
             <div class="m-due" id="m-due"></div>
@@ -847,6 +861,7 @@ function showCard() {
     flipped=false;
     document.getElementById('fc').classList.remove('flipped');
     document.getElementById('s-rate').style.display='none';
+    setTimeout(()=>speak(c.front), 400);
 }
 
 function flipCard() {
@@ -1150,6 +1165,17 @@ function importCards(e) {
 function resetAll() {
     if(!confirm('Delete ALL cards? This cannot be undone!'))return;
     localStorage.removeItem(K); updateHome(); toast('All cards deleted');
+}
+
+// ─── Speech ───────────────────────────────────────────────────────────────────
+function speak(text) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US';
+    u.rate = 0.85;
+    u.pitch = 1;
+    window.speechSynthesis.speak(u);
 }
 
 // ─── Utils ────────────────────────────────────────────────────────────────────
