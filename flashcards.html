@@ -150,7 +150,7 @@
         /* Flashcard */
         .fc-wrap {
             perspective: 1200px;
-            height: 260px;
+            height: 320px;
             margin: 16px 0;
             cursor: pointer;
             user-select: none;
@@ -180,10 +180,14 @@
             text-align: center;
         }
         .fc-back { transform: rotateY(180deg); }
-        .fc-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 600; margin-bottom: 14px; }
+        .fc-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 600; margin-bottom: 10px; }
         .fc-word { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.2; }
-        .fc-trans { font-size: 22px; font-weight: 700; color: var(--primary-light); margin-bottom: 10px; }
+        .fc-trans { font-size: 22px; font-weight: 700; color: var(--primary-light); margin-bottom: 12px; }
         .fc-ex { font-size: 13px; color: var(--text-muted); font-style: italic; line-height: 1.5; max-width: 280px; }
+        .fc-examples { width: 100%; text-align: left; margin-top: 4px; overflow-y: auto; max-height: 130px; }
+        .fc-ex-item { font-size: 12px; color: var(--text-muted); font-style: italic; line-height: 1.55; padding: 5px 0; border-top: 1px solid var(--border); }
+        .fc-ex-item:first-child { border-top: none; }
+        .fc-ex-em { color: var(--primary-light); font-style: normal; font-weight: 600; }
         .fc-hint { font-size: 12px; color: var(--text-muted); position: absolute; bottom: 16px; display: flex; align-items: center; gap: 5px; }
 
         /* Rating buttons */
@@ -513,9 +517,9 @@
                     <div class="fc-face fc-back">
                         <div class="fc-label">Translation</div>
                         <div class="fc-trans" id="fc-trans">—</div>
-                        <div class="fc-ex" id="fc-ex"></div>
-                        <button onclick="event.stopPropagation();speak(document.getElementById('fc-front').textContent)" style="margin-top:16px;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.4);border-radius:50px;padding:8px 20px;color:#a5b4fc;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;margin-left:auto;margin-right:auto">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                        <div class="fc-examples" id="fc-examples"></div>
+                        <button onclick="event.stopPropagation();speak(document.getElementById('fc-front').textContent)" style="margin-top:10px;flex-shrink:0;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.4);border-radius:50px;padding:7px 18px;color:#a5b4fc;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;margin-left:auto;margin-right:auto">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
                             Listen
                         </button>
                     </div>
@@ -786,8 +790,8 @@ const saveChatH = h => save(KC, h.slice(-60));
 // ─── SM-2 ─────────────────────────────────────────────────────────────────────
 const today = () => new Date().toISOString().split('T')[0];
 
-function mkCard(f, b, ex='', notes='') {
-    return { id: Date.now().toString(36)+Math.random().toString(36).slice(2), front:f, back:b, example:ex, notes, interval:0, ef:2.5, reps:0, due:today(), created:new Date().toISOString() };
+function mkCard(f, b, ex='', notes='', examples=[]) {
+    return { id: Date.now().toString(36)+Math.random().toString(36).slice(2), front:f, back:b, example:ex, examples, notes, interval:0, ef:2.5, reps:0, due:today(), created:new Date().toISOString() };
 }
 
 const isDue = c => c.due <= today();
@@ -849,18 +853,32 @@ function showCard() {
     }
     const c = queue[qi];
     const nx = calcNext(c);
+    // Fix: disable transition so back face never flashes during reset
+    const fcEl = document.getElementById('fc');
+    fcEl.style.transition = 'none';
+    fcEl.classList.remove('flipped');
+    fcEl.offsetHeight; // force reflow
+    fcEl.style.transition = '';
+    flipped = false;
+    document.getElementById('s-rate').style.display='none';
+
     document.getElementById('fc-front').textContent = c.front;
     document.getElementById('fc-trans').textContent = c.back;
-    document.getElementById('fc-ex').textContent = c.example||'';
+    // Render example phrases
+    const exArr = Array.isArray(c.examples) && c.examples.length ? c.examples
+                  : c.example ? [c.example] : [];
+    const exEl = document.getElementById('fc-examples');
+    exEl.innerHTML = exArr.map(e => {
+        const hi = e.replace(new RegExp('\\b'+c.front+'\\b', 'gi'), m=>`<span class="fc-ex-em">${m}</span>`);
+        return `<div class="fc-ex-item">${hi}</div>`;
+    }).join('');
+
     document.getElementById('ri-hard').textContent = fmtDays(nx.hard);
     document.getElementById('ri-good').textContent = fmtDays(nx.good);
     document.getElementById('ri-easy').textContent = fmtDays(nx.easy);
     const pct = (qi/queue.length*100).toFixed(0);
     document.getElementById('s-pb').style.width = pct+'%';
     document.getElementById('s-prog').textContent = `${qi} / ${queue.length}`;
-    flipped=false;
-    document.getElementById('fc').classList.remove('flipped');
-    document.getElementById('s-rate').style.display='none';
     setTimeout(()=>speak(c.front), 400);
 }
 
@@ -1228,7 +1246,8 @@ function parseImportUrl(text) {
         return parsed.map(c=>({
             front: c.front||c.f||'',
             back: c.back||c.b||'',
-            example: c.example||c.e||''
+            example: c.example||c.e||'',
+            examples: Array.isArray(c.examples) ? c.examples : []
         })).filter(c=>c.front&&c.back);
     } catch { return null; }
 }
@@ -1260,7 +1279,7 @@ function doQI() {
     const fromUrl = parseImportUrl(text);
     if (fromUrl && fromUrl.length) {
         const all = cards();
-        fromUrl.forEach(c=>all.push(mkCard(c.front, c.back, c.example)));
+        fromUrl.forEach(c=>all.push(mkCard(c.front, c.back, c.example, '', c.examples||[])));
         save(K, all);
         closeQI();
         showView('cards');
@@ -1303,7 +1322,8 @@ function checkUrlImport() {
         pendingUrlCards = parsed.map(c=>({
             front: c.front||c.f||'',
             back: c.back||c.b||'',
-            example: c.example||c.e||''
+            example: c.example||c.e||'',
+            examples: Array.isArray(c.examples) ? c.examples : []
         })).filter(c=>c.front&&c.back);
 
         if (!pendingUrlCards.length) return;
@@ -1318,7 +1338,7 @@ function checkUrlImport() {
 function confirmUrlImport() {
     const all = cards();
     const count = pendingUrlCards.length;
-    pendingUrlCards.forEach(c=>all.push(mkCard(c.front, c.back, c.example)));
+    pendingUrlCards.forEach(c=>all.push(mkCard(c.front, c.back, c.example, '', c.examples||[])));
     save(K, all);
     pendingUrlCards=[];
     document.getElementById('url-import-banner').style.display='none';
