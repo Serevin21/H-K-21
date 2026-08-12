@@ -637,6 +637,29 @@
         <div class="hdr"><h1>Settings</h1></div>
 
         <div class="ss">
+            <div class="ss-t">Study Settings</div>
+            <div class="surf">
+                <div class="fg">
+                    <label class="fl">New cards per day</label>
+                    <div style="display:flex;align-items:center;gap:14px;margin-top:6px">
+                        <input type="range" id="ncpd-range" min="3" max="50" step="1" value="10"
+                            style="flex:1;accent-color:#6366f1;height:4px" oninput="ncpdSync(this.value)">
+                        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                            <button onclick="ncpdAdj(-1)" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>
+                            <span id="ncpd-val" style="font-size:26px;font-weight:800;min-width:36px;text-align:center;color:var(--primary-light)">10</span>
+                            <button onclick="ncpdAdj(1)" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>
+                        </div>
+                    </div>
+                </div>
+                <p style="font-size:13px;color:var(--text-muted);line-height:1.55;margin-bottom:14px">
+                    Повторения выдаются всегда. Лимит — только для <strong style="color:var(--text)">новых слов</strong>, которые ты ещё не учил.
+                    <br>Рекомендация: <strong style="color:#86efac">10–15</strong> новых слов в день для хорошего запоминания.
+                </p>
+                <button class="btn btn-p" onclick="saveStudySettings()">Save</button>
+            </div>
+        </div>
+
+        <div class="ss">
             <div class="ss-t">AI Tutor (Claude)</div>
             <div class="surf">
                 <div class="fg">
@@ -654,7 +677,7 @@
             <div class="ss-t">Data</div>
             <div class="surf">
                 <button class="btn btn-o" onclick="exportCards()" style="margin-bottom:10px">⬇ Export (JSON)</button>
-                <button class="btn btn-o" onclick="document.getElementById(\"imp-f\").click()">⬆ Import (JSON)</button>
+                <button class="btn btn-o" onclick="document.getElementById(&quot;imp-f&quot;).click()">⬆ Import (JSON)</button>
                 <input type="file" id="imp-f" accept=".json" style="display:none" onchange="importCards(event)">
             </div>
         </div>
@@ -825,7 +848,22 @@ let queue=[], qi=0, flipped=false, doneToday=0;
 function goStudy(force=false) {
     setActive('study');
     const all = cards();
-    queue = force ? [...all] : all.filter(isDue);
+    if (force) {
+        queue = [...all];
+    } else {
+        const s = cfg();
+        const limit = s.newCardsPerDay !== undefined ? s.newCardsPerDay : 10;
+        const todayNewCount = s.newCardsDate === today() ? (s.newCardsStudiedToday || 0) : 0;
+        const remainingNew = Math.max(0, limit - todayNewCount);
+        const reviewCards = all.filter(c => c.reps > 0 && isDue(c));
+        const newCards = all.filter(c => c.reps === 0).slice(0, remainingNew);
+        queue = [...reviewCards, ...newCards];
+        if (newCards.length > 0) {
+            s.newCardsDate = today();
+            s.newCardsStudiedToday = todayNewCount + newCards.length;
+            saveCfg(s);
+        }
+    }
     qi = 0;
     flipped = false;
 
@@ -939,9 +977,14 @@ function setActive(name) {
 
 function updateHome() {
     const all = cards();
-    const due = all.filter(isDue).length;
-    const nw = all.filter(c=>c.reps===0).length;
     const s = cfg();
+    const limit = s.newCardsPerDay !== undefined ? s.newCardsPerDay : 10;
+    const todayNewCount = s.newCardsDate === today() ? (s.newCardsStudiedToday || 0) : 0;
+    const remainingNew = Math.max(0, limit - todayNewCount);
+    const reviewCards = all.filter(c => c.reps > 0 && isDue(c));
+    const allNewCards = all.filter(c => c.reps === 0);
+    const newToStudy = Math.min(allNewCards.length, remainingNew);
+    const totalDue = reviewCards.length + newToStudy;
     const streak = (() => {
         if (!s.streakDate) return 0;
         const yd = new Date(); yd.setDate(yd.getDate()-1);
@@ -949,9 +992,9 @@ function updateHome() {
         if (s.streakDate===today()||s.streakDate===ydStr) return s.streak||0;
         return 0;
     })();
-    document.getElementById('h-due').textContent = due;
+    document.getElementById('h-due').textContent = totalDue;
     document.getElementById('h-total').textContent = all.length;
-    document.getElementById('h-new').textContent = nw+' new';
+    document.getElementById('h-new').textContent = newToStudy > 0 ? `+${newToStudy} new` : (allNewCards.length > 0 ? `${allNewCards.length} waiting` : '0 new');
     document.getElementById('h-streak').textContent = streak+' 🔥';
     document.getElementById('h-done').textContent = s.streakDate===today() ? (s.doneToday||0) : 0;
 }
@@ -1148,8 +1191,32 @@ function autoH(el) { el.style.height=''; el.style.height=Math.min(el.scrollHeigh
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 function loadSettingsUI() {
-    const k=cfg().apiKey||'';
-    document.getElementById('api-in').value=k;
+    const s = cfg();
+    const k = s.apiKey || '';
+    document.getElementById('api-in').value = k;
+    const limit = s.newCardsPerDay !== undefined ? s.newCardsPerDay : 10;
+    document.getElementById('ncpd-range').value = limit;
+    document.getElementById('ncpd-val').textContent = limit;
+}
+
+function ncpdSync(v) {
+    document.getElementById('ncpd-val').textContent = v;
+}
+
+function ncpdAdj(delta) {
+    const el = document.getElementById('ncpd-range');
+    const newVal = Math.min(50, Math.max(3, parseInt(el.value) + delta));
+    el.value = newVal;
+    document.getElementById('ncpd-val').textContent = newVal;
+}
+
+function saveStudySettings() {
+    const v = parseInt(document.getElementById('ncpd-range').value) || 10;
+    const s = cfg();
+    s.newCardsPerDay = v;
+    saveCfg(s);
+    toast('Settings saved ✓');
+    updateHome();
 }
 
 function saveKey() {
