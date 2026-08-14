@@ -800,7 +800,25 @@ Keep definitions concise (under 8 words). No numbering, no extra text.</div>
 
 <script>
 // ─── Storage ──────────────────────────────────────────────────────────────────
-const K = 'ec_cards', KS = 'ec_settings', KC = 'ec_chat';
+const K = 'ec_cards', KS = 'ec_settings', KC = 'ec_chat', KQ = 'ec_queue';
+
+function saveSession() {
+    if (!queue.length || qi >= queue.length) return;
+    localStorage.setItem(KQ, JSON.stringify({ date: today(), ids: queue.map(c=>c.id), qi }));
+}
+
+function clearSession() { localStorage.removeItem(KQ); }
+
+function loadSession() {
+    try {
+        const s = JSON.parse(localStorage.getItem(KQ));
+        if (!s || s.date !== today() || s.qi == null) return null;
+        const cardMap = new Map(cards().map(c=>[c.id,c]));
+        const restored = s.ids.map(id=>cardMap.get(id)).filter(Boolean);
+        if (!restored.length || s.qi >= restored.length) return null;
+        return { queue: restored, qi: s.qi };
+    } catch { return null; }
+}
 
 const load = k => { try { return JSON.parse(localStorage.getItem(k)) || (k===K?[]:(k===KC?[]:{})); } catch { return k===K?[]:(k===KC?[]:{}); } };
 const save = (k,v) => localStorage.setItem(k, JSON.stringify(v));
@@ -848,8 +866,23 @@ let queue=[], qi=0, flipped=false, doneToday=0;
 function goStudy(force=false) {
     setActive('study');
     const all = cards();
+
+    if (!force) {
+        const saved = loadSession();
+        if (saved) {
+            queue = saved.queue;
+            qi = saved.qi;
+            flipped = false;
+            document.getElementById('s-content').style.display='block';
+            document.getElementById('s-done').style.display='none';
+            showCard();
+            return;
+        }
+    }
+
     if (force) {
         queue = [...all];
+        clearSession();
     } else {
         const s = cfg();
         const limit = s.newCardsPerDay !== undefined ? s.newCardsPerDay : 10;
@@ -884,6 +917,7 @@ function goStudy(force=false) {
 
 function showCard() {
     if (qi>=queue.length) {
+        clearSession();
         document.getElementById('s-content').style.display='none';
         document.getElementById('s-done').style.display='block';
         updateHome();
@@ -935,6 +969,7 @@ function rate(r) {
     doneToday++;
     trackStreak();
     qi++;
+    saveSession();
     showCard();
 }
 
