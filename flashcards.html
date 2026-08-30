@@ -1900,7 +1900,7 @@ function importCards(e) {
 
 function resetAll() {
     if(!confirm('Delete ALL cards? This cannot be undone!'))return;
-    localStorage.removeItem(K); updateHome(); toast('All cards deleted');
+    localStorage.removeItem(K); clearSession(); updateHome(); toast('All cards deleted');
 }
 
 // ─── Speech ───────────────────────────────────────────────────────────────────
